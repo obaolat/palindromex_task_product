@@ -1,0 +1,257 @@
+/* General Layout */
+.app-container {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+}
+
+.diagram {
+  border: 1px solid #ccc;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Task Rectangle */
+.task-rectangle {
+  width: calc(300px * 1.3); /* Made the task rectangle 1.1 times larger */
+  height: calc(150px * 1.3); /* Made the task rectangle 1.1 times larger */
+  background: lightblue;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px;
+}
+
+/* D Button */
+.task-rectangle .toggle-d {
+  width: calc(50px / 5); /* Reduced width of the D button */
+  height: calc(50px / 1.8); /* Reduced height of the D button */
+  background: lightcoral;
+  border: none;
+  color: white;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 5px 0;
+}
+
+/* Settings Box */
+.settings-box {
+  width: calc(200px / 1.8); /* Reduced width of the settings box */
+  height: calc(100px / 1.8); /* Reduced height of the settings box */
+  background: white;
+  border: 1px solid #ccc;
+  padding: 5px;
+  position: absolute;
+  top: 10px; /* Positioned inside the rectangle */
+  right: 10px; /* Positioned inside the rectangle */
+  border-radius: 5px;
+}
+
+/* Start/End Time Button */
+.task-rectangle .time-button {
+  width: calc(80px ); /* Reduced width of the time button */
+  height: calc(30px ); /* Reduced height of the time button */
+  background: white;
+  border: none;
+  color: black;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 5px 0;
+}
+
+.times {
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+
+/* Task Rectangle */
+.task-rectangle {
+  width: calc(300px * 1.3);
+  height: calc(150px * 1.3);
+  background: lightblue;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Settings Table */
+.settings-table {
+  position: absolute;
+  top: 0; /* Align with the top of the task rectangle */
+  left: -230px; /* Place it to the left of the task rectangle */
+  width: 200px; /* Adjust width */
+  padding: 10px;
+  border: 1px solid #ccc;
+  background: white;
+  z-index: 1;
+  border-radius: 5px;
+}
+.output-settings-table {
+  position: absolute;
+  top: 0; /* Align with the top of the task rectangle */
+  right: -230px; /* Place it to the left of the task rectangle */
+  width: 200px; /* Adjust width */
+  padding: 10px;
+  border: 1px solid #ccc;
+  background: white;
+  z-index: 1;
+  border-radius: 5px;
+}
+
+
+/* Ovals */
+.product-oval {
+  width: 150px;
+  height: 20px;
+
+  padding: 10px;
+  background-color: green;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  position: relative;
+  left: -350px;
+  margin-bottom: 10px;
+}
+
+.output-product-oval {
+  width: 150px;
+  height: 20px;
+
+  padding: 10px;
+  background-color: green;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  position: relative;
+  right: -350px;
+  margin-bottom: 10px;
+}
+
+.product-oval-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 20px solid green; /* Arrowhead color */
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  top: 50%; /* Align vertically with the oval */
+  left: -20px; /* Position the arrow to point towards the "D" button */
+}
+.output-product-oval-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 20px solid green; /* Arrowhead color */
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  top: 50%; /* Align vertically with the oval */
+  right: -20px; /* Position the arrow to point towards the "D" button */
+}
+
+
+
+
+
+/* D Button and Settings Button */
+.task-rectangle .button-container {
+  position: absolute;
+  top: 70px; /* Align inside the task rectangle */
+  left: 10px; /* Position on the left side */
+  display: flex;
+  flex-direction: column;
+  gap: 5px; /* Space between buttons */
+}
+.right-button-container{
+  position: absolute;
+  top: 70px;
+  right:10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.product-oval-container{
+  display: flex; /* Use flexbox to align ovals dynamically */
+  flex-direction: column; /* Stack ovals vertically */
+  align-items: flex-start; /* Align to the left */
+  gap: 0.1px; /* Space between ovals */
+  width:100PX ; /* Ensure it takes up the full width */
+  margin-top: 10px; /* Space from the task rectangle */
+}
+.task-rectangle .toggle-d,
+.task-rectangle .toggle-settings {
+  width: 40px;
+  height: 40px;
+  border: none;
+  color: white;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.task-rectangle .toggle-d {
+  background: lightcoral;
+}
+
+.task-rectangle .toggle-settings {
+  background: lightgray;
+}
+
+/* Ensure the settings and product ovals appear on the right side */
+.right-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px; /* Adjust the width of the panel */
+  height: 100%;
+  background-color: #f8f9fa;
+  box-shadow: -2px 0px 5px rgba(0, 0, 0, 0.1);
+  display: none;
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.right-panel.active {
+  display: block;
+}
+
+/* Optional - Styling for the settings table and product ovals within the right panel */
+.settings-table {
+  margin: 20px 0;
+}
+
+.product-oval {
+  margin: 10px 0;
+}
+
+

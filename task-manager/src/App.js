@@ -1,215 +1,361 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import GraphVisualization from './components/GraphVisualization';
+import "./style/style.css";
+import ProductOval from "./components/ProductOval";
 
-import "./App.css";
+const axiosInstance = axios.create({
+  baseURL: "http://127.0.0.1:5000", // Flask backend URL
+});
 
 function App() {
-  // State for tasks and products
   const [tasks, setTasks] = useState([]);
   const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [taskDeployments, setTaskDeployments] = useState({}); 
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showSettings, setShowSettings] = useState(false); 
+  const [showProductsTable, setShowProductsTable] = useState(false);
+  const [showTimes, setShowTimes] = useState(false); 
+  const [showProducts, setShowProducts] = useState(false); 
+  const [showSettingsRight, setShowSettingsRight] = useState(false); 
+  const [showProductsRight, setShowProductsRight] = useState(false); 
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // State for form inputs (tasks)
-  const [taskName, setTaskName] = useState("");
-  const [taskLevel, setTaskLevel] = useState(1);
-  const [taskStartTime, setTaskStartTime] = useState("");
-  const [taskEndTime, setTaskEndTime] = useState("");
-  const [taskCost, setTaskCost] = useState("");
-
-const [selectedInputTask, setSelectedInputTask] = useState(""); // For the selected input task
-const [selectedOutputTask, setSelectedOutputTask] = useState(""); // For the selected output task
+  const [newTask, setNewTask] = useState({ name: "", start_time: "", end_time: "", cost: "", currency: "USD" });
+  const [newProduct, setNewProduct] = useState({ name: "", creation_time: "", cost: "", currency: "USD" });
 
 
-  // State for form inputs (products)
-  const [productName, setProductName] = useState("");
-  const [productCreationTime, setProductCreationTime] = useState("");
-  const [productCost, setProductCost] = useState("");
-
-  // Fetch tasks and products from Flask backend
   useEffect(() => {
-    // Fetch tasks
-    axios
-      .get("http://localhost:5000/tasks")
-      .then((response) => {
-        console.log("Fetched tasks:", response.data); // Debug output
-        setTasks(response.data);
-      })
-      .catch((error) => console.error("Error fetching tasks:", error));
-  
-    // Fetch products
-    axios
-      .get("http://localhost:5000/products")
-      .then((response) => {
-        console.log("Fetched products:", response.data); // Debug output
-        setProducts(response.data);
-      })
-      .catch((error) => console.error("Error fetching products:", error));
+    fetchTasks();
+    fetchProducts();
   }, []);
-  // Handle task form submission
-  const handleTaskSubmit = async (e) => {
-  e.preventDefault();
 
-  const newTask = {
-    name: taskName,
-    level: taskLevel,
-    start_time: taskStartTime,
-    end_time: taskEndTime,
-    cost: taskCost,
-  };
-
-  try {
-    const response = await axios.post("http://localhost:5000/tasks", newTask);
-    setTasks([...tasks, response.data]); 
-    resetTaskForm(); 
-  } catch (error) {
-    console.error("Error creating task:", error);
-  }
-};
-
-
-  // Reset task form
-  const resetTaskForm = () => {
-    setTaskName("");
-    setTaskLevel(1);
-    setTaskStartTime("");
-    setTaskEndTime("");
-    setTaskCost("");
-  };
-
-  // Handle product form submission
-  const handleProductSubmit = async (e) => {
-    e.preventDefault();
-
-    const newProduct = {
-      name: productName,
-      creation_time: productCreationTime,
-      cost: productCost,
-      input_task_id:selectedInputTask,
-      output_task_id: selectedOutputTask
+  useEffect(() => {
+    if (selectedTask) {
+      fetchTaskDeployments(selectedTask.id);
     }
+  }, [selectedTask]);
+
+  const fetchTasks = async () => {
     try {
-      const newProduct = {
-        name: productName,
-        creation_time: productCreationTime,
-        cost: productCost,
-      };
-      const response = await axios.post("http://localhost:5000/products", newProduct);
-      setProducts([...products, response.data]); // Update products state
-      resetProductForm(); // Clear form inputs
+      const response = await axiosInstance.get("/api/tasks");
+      setTasks(response.data || []);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await axiosInstance.get("/api/products");
+      setProducts(response.data || []);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    }
+  };
+
+  
+
+  const fetchTaskDeployments = async (taskId) => {
+    try {
+      const response = await axiosInstance.get(`/api/tasks/${taskId}/products`);
+      setTaskDeployments((prev) => ({
+        ...prev,
+        [taskId]: response.data, // Replace existing task deployments with fresh data
+      }));
+    } catch (error) {
+      console.error("Error fetching task deployments:", error);
+    }
+  };
+  
+
+  const handleTaskCreation = async () => {
+    try {
+      await axiosInstance.post("/api/tasks", newTask);
+      fetchTasks();
+      setNewTask({ name: "", start_time: "", end_time: "", cost: "", currency: "USD" });
+    } catch (error) {
+      console.error("Error creating task:", error);
+    }
+  };
+
+  const handleProductCreation = async () => {
+    try {
+      await axiosInstance.post("/api/products", newProduct);
+      fetchProducts();
+      if (selectedTask) fetchTaskDeployments(selectedTask.id); // Update deployments dynamically
+      setNewProduct({ name: "", creation_time: "", cost: "", currency: "USD" });
     } catch (error) {
       console.error("Error creating product:", error);
     }
   };
 
-  // Reset product form
-  const resetProductForm = () => {
-    setProductName("");
-    setProductCreationTime("");
-    setProductCost("");
+  const toggleDeployment = async (productId, deploymentType) => {
+    if (!selectedTask) return;
+  
+    try {
+      await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products/${productId}`, {
+        type: deploymentType, // Specify whether to toggle input or output deployment
+      });
+  
+      // Refetch the task deployments after toggling to ensure state consistency
+      fetchTaskDeployments(selectedTask.id);
+    } catch (error) {
+      console.error("Error toggling deployment:", error);
+    }
+  };
+  
+  
+
+  const toggleSettings = () => {
+    setShowSettings((prev) => {
+      if (!prev) setShowProducts(false); // Ensure ovals are hidden when settings are shown
+      return !prev;
+    });
+  };
+
+  const toggleProducts = () => {
+    setShowProducts((prev) => {
+      if (!prev) setShowSettings(false); // Ensure settings table is hidden when ovals are shown
+      return !prev;
+    });
+  };
+
+  const toggleSettingsRight = () => {
+    setShowSettingsRight((prev) => {
+      if (!prev) setShowProductsRight(false); // Ensure output ovals are hidden when settings are shown
+      return !prev;
+    });
+  };
+
+  const toggleProductsRight = () => {
+    setShowProductsRight((prev) => {
+      if (!prev) setShowSettingsRight(false); // Ensure output settings table is hidden when output ovals are shown
+      return !prev;
+    });
   };
 
   return (
-    <div className="App">
-      <h1>Task Manager with Visualization</h1>
+    <div className="app-container">
+      <h1>Interactive Task and Product Diagram</h1>
 
-      {/* Task Form */}
-      <div className="form-container">
-        <h2>Create Task</h2>
-        <form onSubmit={handleTaskSubmit}>
+      {/* Task and Product Creation */}
+      <div className="creation-forms">
+        <div className="task-creation-form">
+          <h2>Create Task</h2>
           <input
             type="text"
-            value={taskName}
-            onChange={(e) => setTaskName(e.target.value)}
             placeholder="Task Name"
-            required
-          />
-          <input
-            type="number"
-            value={taskLevel}
-            onChange={(e) => setTaskLevel(e.target.value)}
-            placeholder="Task Level"
-            min="1"
-            required
+            value={newTask.name}
+            onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
           />
           <input
             type="datetime-local"
-            value={taskStartTime}
-            onChange={(e) => setTaskStartTime(e.target.value)}
-            required
+            placeholder="Start Time"
+            value={newTask.start_time}
+            onChange={(e) => setNewTask({ ...newTask, start_time: e.target.value })}
           />
           <input
             type="datetime-local"
-            value={taskEndTime}
-            onChange={(e) => setTaskEndTime(e.target.value)}
-            required
+            placeholder="End Time"
+            value={newTask.end_time}
+            onChange={(e) => setNewTask({ ...newTask, end_time: e.target.value })}
           />
           <input
             type="number"
-            value={taskCost}
-            onChange={(e) => setTaskCost(e.target.value)}
-            placeholder="Task Cost"
-            required
+            placeholder="Cost"
+            value={newTask.cost}
+            onChange={(e) => setNewTask({ ...newTask, cost: e.target.value })}
           />
-          <button type="submit">Add Task</button>
-        </form>
+          <select
+            value={newTask.currency}
+            onChange={(e) => setNewTask({ ...newTask, currency: e.target.value })}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+          <button onClick={handleTaskCreation}>Create Task</button>
+        </div>
+
+        <div className="product-creation-form">
+          <h2>Create Product</h2>
+          <input
+            type="text"
+            placeholder="Product Name"
+            value={newProduct.name}
+            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+          />
+          <input
+            type="datetime-local"
+            placeholder="Creation Time"
+            value={newProduct.creation_time}
+            onChange={(e) => setNewProduct({ ...newProduct, creation_time: e.target.value })}
+          />
+          <input
+            type="number"
+            placeholder="Cost"
+            value={newProduct.cost}
+            onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })}
+          />
+          <select
+            value={newProduct.currency}
+            onChange={(e) => setNewProduct({ ...newProduct, currency: e.target.value })}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+          <button onClick={handleProductCreation}>Create Product</button>
+        </div>
       </div>
 
-      {/* Product Form */}
-      // Render Select Inputs for input_task_id and output_task_id
-      <div className="form-container">
-  <h2>Create Product</h2>
-  <form onSubmit={handleProductSubmit}>
-    <input
-      type="text"
-      value={productName}
-      onChange={(e) => setProductName(e.target.value)}
-      placeholder="Product Name"
-      required
-    />
-    <input
-      type="datetime-local"
-      value={productCreationTime}
-      onChange={(e) => setProductCreationTime(e.target.value)}
-      required
-    />
-    <input
-      type="number"
-      value={productCost}
-      onChange={(e) => setProductCost(e.target.value)}
-      placeholder="Product Cost"
-      required
-    />
+      {/* Task List */}
+      <div className="task-list">
+        <h2>Existing Tasks</h2>
+        <ul>
+          {tasks.map((task) => (
+            <li
+              key={task.id}
+              className={selectedTask?.id === task.id ? "selected" : ""}
+              onClick={() => {
+                setSelectedTask(task);
+                setShowSettings(false);
+                setShowProducts(false);
+                setShowSettingsRight(false);
+                setShowProductsRight(false);
+              }}
+            >
+              {task.name}
+            </li>
+          ))}
+        </ul>
+      </div>
 
-    {/* Input Task Selection */}
-    <select onChange={(e) => setSelectedInputTask(e.target.value)} required>
-      <option value="">Select Input Task</option>
-      {tasks.map((task) => (
-        <option key={task.id} value={task.id}>
-          {task.name}
-        </option>
-      ))}
-    </select>
+      {/* Diagram */}
+      {selectedTask && (
+        <div className="diagram">
+          <div className="task-rectangle">
+            <h2>{selectedTask.name}</h2>
+            <div className="button-container">
+              <button className="toggle-settings" onClick={toggleSettings}>⚙</button>
+              <button className="toggle-d" onClick={toggleProducts}>D</button>
+            </div>
 
-    {/* Output Task Selection */}
-    <select onChange={(e) => setSelectedOutputTask(e.target.value)} required>
-      <option value="">Select Output Task</option>
-      {tasks.map((task) => (
-        <option key={task.id} value={task.id}>
-          {task.name}
-        </option>
-      ))}
-    </select>
+            <div className="right-button-container">
+              <button className="toggle-settings" onClick={toggleSettingsRight}>⚙</button>
+              <button className="toggle-d" onClick={toggleProductsRight}>D</button>
+            </div>
 
-    <button type="submit">Add Product</button>
-  </form>
-</div>
+            <button className="time-button" onClick={() => setShowTimes((prev) => !prev)}>
+              Start/End Time
+            </button>
 
 
+           {/* Input Settings Table */}
+            {showSettings && (
+              <div className="settings-table">
+                <h3>Input Settings for {selectedTask.name}</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Deployed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taskDeployments[selectedTask.id]?.map((product) => (
+                      <tr key={product.id}>
+                        <td>{product.name}</td>
+                        <td
+                          className={product.input_deployed === "V" ? "deployed" : "not-deployed"}
+                          onClick={() => toggleDeployment(product.id, "input")} // Toggle input deployment independently
+                        >
+                          {product.input_deployed}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
 
-      {/* Visualization Component */}
-      <GraphVisualization tasks={tasks} products={products} />
+
+            {/* Output Settings Table */}
+            {showSettingsRight && (
+              <div className="output-settings-table">
+                <h3>Output Settings for {selectedTask.name}</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Output Deployed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taskDeployments[selectedTask.id]?.map((product) => (
+                      <tr key={product.id}>
+                        <td>{product.name}</td>
+                        <td
+                          className={product.output_deployed === "V" ? "deployed" : "not-deployed"}
+                          onClick={() => toggleDeployment(product.id, "output")}
+                        >
+                          {product.output_deployed}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+      
+            {/* Input Ovals */}
+            {showProducts && (
+              <div className="product-oval-container">
+                {taskDeployments[selectedTask.id]?.filter((product) => product.input_deployed === "V").length > 0 ? (
+                  taskDeployments[selectedTask.id]
+                    .filter((product) => product.input_deployed === "V")
+                    .map((product) => (
+                      <div key={product.id} className="product-oval">
+                        <h3>{product.name}</h3>
+                        <div className="product-oval-arrow"></div>
+                      </div>
+                    ))
+                ) : (
+                  <p className="no-products-message">No products deployed</p>
+                )}
+              </div>
+            )}
+
+              
+
+            {/* Output Ovals */}
+            {showProductsRight &&
+              taskDeployments[selectedTask.id]?.filter(
+                (product) => product.output_deployed === "V"
+              ).map((product) => (
+                <div key={product.id} className="output-product-oval">
+                  <div>{product.name}</div>
+                  <div className="output-product-oval-arrow"></div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Show Times */}
+      {showTimes && (
+        <div className="times">
+          <p>Start Time: {selectedTask.start_time}</p>
+          <p>End Time: {selectedTask.end_time}</p>
+        </div>
+      )}
     </div>
-  );
+    
+  )
 }
+
 
 export default App;
