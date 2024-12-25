@@ -25,6 +25,8 @@ function App() {
   const [outputSettings, setOutputSettings] = useState([]); // Output settings for the selected task
   const [newTask, setNewTask] = useState({ name: "", start_time: "", end_time: "", cost: "", currency: "USD" });
   const [newProduct, setNewProduct] = useState({ name: "", creation_time: "", cost: "", currency: "USD" });
+  const [deployedOutputProducts, setDeployedOutputProducts] = useState([]); // Separate state for deployed output products
+  const [deployedInputProducts, setDeployedInputProducts] = useState([]); // Separate state for deployed input products
 
 
   useEffect(() => {
@@ -61,7 +63,7 @@ function App() {
 
   const fetchOutputProducts = async (taskId) => {
     try {
-        const response = await axiosInstance.get(`/api/tasks/${taskId}/output-products`);
+        const response = await axiosInstance.get(`/api/tasks/${taskId}/products`);
         setOutputSettings(response.data.output_products || []); // Store output products
     } catch (error) {
         console.error("Error fetching output products:", error);
@@ -208,6 +210,7 @@ const toggleOutputDeploymentStatus = async (productId, currentState) => {
 
       await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
           product_id: productId,
+          type:"output",
           state: newState, // Update state in the backend
       });
 
@@ -244,7 +247,7 @@ const toggleOutputDeploymentStatus = async (productId, currentState) => {
   const fetchDeployedProducts = async (taskId) => {
     try {
         const response = await axiosInstance.get(`/api/tasks/${taskId}/deployed-products`);
-        return response.data.deployment_products || [];
+        return response.data || [];
     } catch (error) {
         console.error("Error fetching deployed products:", error);
         return [];
@@ -302,34 +305,49 @@ const deleteFromOutputSettingsTable = async (productId) => {
     });
   };
 
+  
+
   const toggleProducts = async () => {
     if (!selectedTask) return;
-
+  
     try {
-        const deployedProducts = await fetchDeployedProducts(selectedTask.id);
-        setShowProducts((prev) => {if(!prev)setShowSettings(false)
-        return !prev;
-        }); // Toggle visibility
-        setInputSettings(deployedProducts); // Update the ovals with the deployed products
-    } catch (error) {
-        console.error("Error toggling deployed products:", error);
-    }
-};
-
-
-const toggleProductsRight = async () => {
-  if (!selectedTask) return;
-
-  try {
-      const deployedProducts = await fetchOutputProducts(selectedTask.id);
-      setShowProductsRight((prev) => {if (!prev)setShowSettingsRight(false)
+      const { deployed_input_products } = await fetchDeployedProducts(selectedTask.id);
+  
+      setShowProducts((prev) => {
+        if (!prev) setShowSettings(false); // Close settings when ovals are shown
         return !prev;
       });
-      setOutputSettings(deployedProducts); // Update with output products
-  } catch (error) {
-      console.error("Error toggling output products:", error);
-  }
-};
+      setDeployedInputProducts(deployed_input_products || []); // Set only "V" products for ovals
+    } catch (error) {
+      console.error("Error toggling deployed products:", error);
+    }
+  };
+  
+  
+
+
+  const toggleProductsRight = async () => {
+    if (!selectedTask) return;
+  
+    try {
+      const { deployed_output_products } = await fetchDeployedProducts(selectedTask.id);
+  
+      const filteredDeployedOutputProducts = deployed_output_products.filter(
+        (product) => product.deployment_state === "V"
+      );
+  
+      setShowProductsRight((prev) => {
+        if (!prev) setShowSettingsRight(false); // Close settings when showing ovals
+        return !prev;
+      });
+  
+      setDeployedOutputProducts(filteredDeployedOutputProducts || []); // Set only "V" products for ovals
+    } catch (error) {
+      console.error("Error toggling deployed output products:", error);
+    }
+  };
+  
+
 
 
   const removeFromInputTable = async (productId) => {
@@ -556,8 +574,8 @@ const toggleProductsRight = async () => {
             {/* Input Ovals */}
             {showProducts && (
               <div className="product-oval-container">
-                {inputSettings.length > 0 ? (
-                  inputSettings.map((product) => (
+                {deployedInputProducts.length > 0 ? (
+                  deployedInputProducts.map((product) => (
                     <div key={product.id} className="product-oval">
                       <h3>{product.name}</h3>
                       <div className="product-oval-arrow"></div>
@@ -568,6 +586,8 @@ const toggleProductsRight = async () => {
                 )}
               </div>
             )}
+
+
 
       {/*Output SettingsTable*/}    
       {showSettingsRight && (
@@ -655,16 +675,22 @@ const toggleProductsRight = async () => {
               
 
             {/* Output Ovals */}
-            {showProductsRight &&
-              outputSettings.map((product) => (
-                product.deployment_state === "V" && (
-                  <div key={product.id} className="output-product-oval">
-                    <div>{product.name}</div>
-                    <div className="output-product-oval-arrow"></div>
-                  </div>
-                )
-              ))
-            }
+            
+            {showProductsRight && (
+              <div className="output-product-oval-container">
+                {deployedOutputProducts.length > 0 ? (
+                  deployedOutputProducts.map((product) => (
+                    <div key={product.id} className="output-product-oval">
+                      <h3>{product.name}</h3>
+                      <div className="product-oval-arrow"></div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="no-products-message">No deployed products</p>
+                )}
+              </div>
+            )}
+
 
           </div>
         </div>

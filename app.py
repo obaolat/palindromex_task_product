@@ -164,7 +164,7 @@ def get_task_products(task_id):
     
 @app.route('/api/tasks/<int:task_id>/products', methods=['GET'])
 def get_task_products(task_id):
-    """Fetch products associated only with this task."""
+    """Fetch input and output products for a specific task."""
     task_products = TaskProduct.query.filter_by(task_id=task_id).all()
 
     input_products = [
@@ -173,14 +173,27 @@ def get_task_products(task_id):
             "name": tp.product.name,
             "deployment_state": tp.deployment_state,
         }
-        for tp in task_products
+        for tp in task_products if tp.type == "input"
     ]
 
-    return jsonify({"input_products": input_products})
+    output_products = [
+        {
+            "id": tp.product.id,
+            "name": tp.product.name,
+            "deployment_state": tp.deployment_state,
+        }
+        for tp in task_products if tp.type == "output"
+    ]
+
+    return jsonify({
+        "input_products": input_products,
+        "output_products": output_products,
+    })
+
 
 @app.route('/api/tasks/<int:task_id>/output-products', methods=['GET'])
 def get_output_products(task_id):
-    """Fetch output products (with their deployment states) for a specific task."""
+    #Fetch output products (with their deployment states) for a specific task.
     task = Task.query.get(task_id)
     if not task:
         return jsonify({"error": "Task not found"}), 404
@@ -196,63 +209,32 @@ def get_output_products(task_id):
 
     return jsonify({"output_products": output_products})
 
-
     
 @app.route('/api/tasks/<int:task_id>/deployed-products', methods=['GET'])
 def get_deployed_products(task_id):
-    """Fetch deployed products (state 'V') for a specific task."""
-    task = Task.query.get(task_id)
-    if not task:
-        return jsonify({"error": "Task not found"}), 404
+    deployed_input_products = TaskProduct.query.filter_by(
+        task_id=task_id, type="input", deployment_state="V"
+    ).all()
+    deployed_output_products = TaskProduct.query.filter_by(
+        task_id=task_id, type="output", deployment_state="V"
+    ).all()
 
-    # Get deployed products for the task
-    deployed_products = [
-        {
-            "id": tp.product.id,
-            "name": tp.product.name,
-            "deployment_state": tp.deployment_state,
-        }
-        for tp in TaskProduct.query.filter_by(task_id=task_id, deployment_state="V").all()
-    ]
+    return jsonify({
+        "deployed_input_products": [
+            {"id": tp.product.id, 
+             "name": tp.product.name, 
+             "deployment_state": tp.deployment_state}
+            for tp in deployed_input_products
+        ],
+        "deployed_output_products": [
+            {"id": tp.product.id, 
+             "name": tp.product.name, 
+             "deployment_state": tp.deployment_state}
+            for tp in deployed_output_products
+        ],
+    })
 
-    return jsonify({"deployed_products": deployed_products})
 
-"""""
-@app.route('/api/tasks/<int:task_id>/products', methods=['PATCH'])
-def update_task_products(task_id):
-    #Attach, delete, or update a product for a task.
-    data = request.json
-    product_id = data.get("product_id")
-    action = data.get("action")  # "add", "delete"
-    new_state = data.get("state")  # "V" or "X"
-
-    task = Task.query.get(task_id)
-    product = Product.query.get(product_id)
-
-    if not task or not product:
-        return jsonify({"error": "Task or Product not found"}), 404
-
-    if action == "add":
-        # Check if the product is already attached
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
-        if not existing_association:
-            new_association = TaskProduct(task_id=task_id, product_id=product_id, deployment_state="V")
-            db.session.add(new_association)
-
-    elif action == "delete":
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
-        if existing_association:
-            db.session.delete(existing_association)
-
-    elif new_state:
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
-        if existing_association:
-            existing_association.deployment_state = new_state
-
-    db.session.commit()
-    return jsonify({"message": "Product updated successfully"})
-
-"""
 @app.route('/api/tasks/<int:task_id>/products', methods=['PATCH'])
 def update_task_products(task_id):
     """Attach, delete, or update a product for a task."""
@@ -276,7 +258,9 @@ def update_task_products(task_id):
             new_association = TaskProduct(
                 task_id=task_id,
                 product_id=product_id,
-                deployment_state="V"  # Default state
+                deployment_state="V", # Default state
+                type =product_type
+                
             )
             db.session.add(new_association)
 
