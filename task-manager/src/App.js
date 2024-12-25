@@ -19,8 +19,10 @@ function App() {
   const [showProducts, setShowProducts] = useState(false); 
   const [showSettingsRight, setShowSettingsRight] = useState(false); 
   const [showProductsRight, setShowProductsRight] = useState(false); 
-  const [searchQuery, setSearchQuery] = useState("");
-
+  const [searchQueryOutput, setSearchQuery] = useState("");
+  const [settingsSearchQuery, setSettingsSearchQuery] = useState(""); // For settings table search
+  const [inputSettings, setInputSettings] = useState([]); // Input settings for the selected task
+  const [outputSettings, setOutputSettings] = useState([]); // Output settings for the selected task
   const [newTask, setNewTask] = useState({ name: "", start_time: "", end_time: "", cost: "", currency: "USD" });
   const [newProduct, setNewProduct] = useState({ name: "", creation_time: "", cost: "", currency: "USD" });
 
@@ -33,6 +35,7 @@ function App() {
   useEffect(() => {
     if (selectedTask) {
       fetchTaskDeployments(selectedTask.id);
+      fetchOutputProducts(selectedTask.id);
     }
   }, [selectedTask]);
 
@@ -45,30 +48,113 @@ function App() {
     }
   };
 
+
   const fetchProducts = async () => {
     try {
       const response = await axiosInstance.get("/api/products");
       setProducts(response.data || []);
+      setFilteredProducts(response.data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
     }
   };
 
+  const fetchOutputProducts = async (taskId) => {
+    try {
+        const response = await axiosInstance.get(`/api/tasks/${taskId}/output-products`);
+        setOutputSettings(response.data.output_products || []); // Store output products
+    } catch (error) {
+        console.error("Error fetching output products:", error);
+    }
+};
+
+
   
 
   const fetchTaskDeployments = async (taskId) => {
     try {
-      const response = await axiosInstance.get(`/api/tasks/${taskId}/products`);
-      setTaskDeployments((prev) => ({
-        ...prev,
-        [taskId]: response.data, // Replace existing task deployments with fresh data
-      }));
+        const response = await axiosInstance.get(`/api/tasks/${taskId}/products`);
+        setTaskDeployments((prev) => ({
+            ...prev,
+            [taskId]: response.data.input_products, // Include deployed_state here
+        }));
+
+        setInputSettings(response.data.input_products); // Ensure deployed_state is accessible
     } catch (error) {
-      console.error("Error fetching task deployments:", error);
+        console.error("Error fetching task deployments:", error);
     }
-  };
+};
+
   
 
+  
+  
+  const handleSettingsSearch = (query) => {
+    setSettingsSearchQuery(query);
+  
+    // Filter products not already attached to the selected task
+    const filtered = products.filter((product) => {
+      const isAlreadyAdded = inputSettings.some((p) => p.id === product.id); // Check if attached to the task
+      return product.name.toLowerCase().includes(query.toLowerCase()) && !isAlreadyAdded;
+    });
+  
+    setFilteredProducts(filtered);
+  };
+  
+  
+  const handleOutputSettingsSearch = (query) => {
+    setSearchQuery(query);
+    const filtered = products.filter((product) => {
+      const isAlreadyAdded = outputSettings.some((p) => p.id === product.id);
+      return product.name.toLowerCase().includes(query.toLowerCase()) && !isAlreadyAdded;
+    });
+
+    setFilteredProducts(filtered)
+  }
+  
+
+  const addToSettingsTable = (product) => {
+    if (!selectedTask) return;
+  
+    if (inputSettings.some((p) => p.id === product.id)) {
+      console.warn("Product is already added to this task.");
+      return;
+    }
+  
+    axiosInstance
+      .patch(`/api/tasks/${selectedTask.id}/products`, {
+        product_id: product.id,
+        type: "input",
+        action: "add",
+      })
+      .then(() => {
+        setInputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
+      })
+      .catch((error) => console.error("Error adding product to settings table:", error));
+  };
+
+  const addToSettingsTableright = (product) => {
+    if (!selectedTask) return;
+  
+    if (outputSettings.some((p) => p.id === product.id)) {
+      console.warn("Product is already added to this task.");
+      return;
+    }
+  
+    axiosInstance
+      .patch(`/api/tasks/${selectedTask.id}/products`, {
+        product_id: product.id,
+        type: "output",
+        action: "add",
+      })
+      .then(() => {
+        setOutputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
+      })
+      .catch((error) => console.error("Error adding product to settings table:", error));
+  };
+  
+  
+  
   const handleTaskCreation = async () => {
     try {
       await axiosInstance.post("/api/tasks", newTask);
@@ -90,22 +176,118 @@ function App() {
     }
   };
 
-  const toggleDeployment = async (productId, deploymentType) => {
-    if (!selectedTask) return;
-  
-    try {
-      await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products/${productId}`, {
-        type: deploymentType, // Specify whether to toggle input or output deployment
+  // Function to toggle deployment status (V ↔ X)
+  const toggleDeploymentStatus = async (productId, currentState) => {
+  if (!selectedTask) return;
+
+  try {
+    const newState = currentState === "V" ? "X" : "V"; // Toggle state
+
+    await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
+      product_id: productId,
+      state: newState, // Update state in the backend
+    });
+
+    // Update state locally for immediate feedback
+    setInputSettings((prev) =>
+      prev.map((product) =>
+        product.id === productId ? { ...product, deployment_state: newState } : product
+      )
+    );
+  } catch (error) {
+    console.error("Error toggling deployment status:", error);
+  }
+};
+
+
+const toggleOutputDeploymentStatus = async (productId, currentState) => {
+  if (!selectedTask) return;
+
+  try {
+      const newState = currentState === "V" ? "X" : "V"; // Toggle state
+
+      await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
+          product_id: productId,
+          state: newState, // Update state in the backend
       });
+
+      // Update state locally for immediate feedback
+      setOutputSettings((prev) =>
+          prev.map((product) =>
+              product.id === productId ? { ...product, deployment_state: newState } : product
+          )
+      );
+  } catch (error) {
+      console.error("Error toggling deployment status:", error);
+  }
+};
+
   
-      // Refetch the task deployments after toggling to ensure state consistency
-      fetchTaskDeployments(selectedTask.id);
-    } catch (error) {
-      console.error("Error toggling deployment:", error);
-    }
+  
+  const addInputTable = (product) => {
+    // Add the product to the input settings table locally
+    setInputSettings((prev) => [...prev, product]);
+  
+    // Persist the addition in the backend
+    axiosInstance
+      .patch(`/api/tasks/${selectedTask.id}/products`, {
+        product_id: product.id,
+        type: "input",
+        state: "V", // Default state is "V"
+      })
+      .catch((error) => {
+        console.error("Error adding product to input table:", error);
+      });
   };
   
+
+  const fetchDeployedProducts = async (taskId) => {
+    try {
+        const response = await axiosInstance.get(`/api/tasks/${taskId}/deployed-products`);
+        return response.data.deployment_products || [];
+    } catch (error) {
+        console.error("Error fetching deployed products:", error);
+        return [];
+    }
+};
+
   
+  
+// Function to delete a product from input settings table
+const deleteFromSettingsTable = async (productId) => {
+  if (!selectedTask) return;
+
+  try {
+    await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
+      product_id: productId,
+      type: "input",
+      action: "delete",
+    });
+
+    // Update the input settings table locally
+    setInputSettings((prev) => prev.filter((product) => product.id !== productId));
+  } catch (error) {
+    console.error("Error deleting product from settings table:", error);
+  }
+};
+
+const deleteFromOutputSettingsTable = async (productId) => {
+  if (!selectedTask) return;
+
+  try {
+    await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
+      product_id: productId,
+      type: "output",
+      action: "delete",
+    });
+
+    // Update the input settings table locally
+    setOutputSettings((prev) => prev.filter((product) => product.id !== productId));
+  } catch (error) {
+    console.error("Error deleting product from settings table:", error);
+  }
+};
+
 
   const toggleSettings = () => {
     setShowSettings((prev) => {
@@ -113,27 +295,61 @@ function App() {
       return !prev;
     });
   };
-
-  const toggleProducts = () => {
-    setShowProducts((prev) => {
-      if (!prev) setShowSettings(false); // Ensure settings table is hidden when ovals are shown
-      return !prev;
-    });
-  };
-
   const toggleSettingsRight = () => {
     setShowSettingsRight((prev) => {
-      if (!prev) setShowProductsRight(false); // Ensure output ovals are hidden when settings are shown
+      if (!prev) setShowProductsRight(false); // Ensure ovals are hidden when settings are shown
       return !prev;
     });
   };
 
-  const toggleProductsRight = () => {
-    setShowProductsRight((prev) => {
-      if (!prev) setShowSettingsRight(false); // Ensure output settings table is hidden when output ovals are shown
-      return !prev;
-    });
+  const toggleProducts = async () => {
+    if (!selectedTask) return;
+
+    try {
+        const deployedProducts = await fetchDeployedProducts(selectedTask.id);
+        setShowProducts((prev) => {if(!prev)setShowSettings(false)
+        return !prev;
+        }); // Toggle visibility
+        setInputSettings(deployedProducts); // Update the ovals with the deployed products
+    } catch (error) {
+        console.error("Error toggling deployed products:", error);
+    }
+};
+
+
+const toggleProductsRight = async () => {
+  if (!selectedTask) return;
+
+  try {
+      const deployedProducts = await fetchOutputProducts(selectedTask.id);
+      setShowProductsRight((prev) => {if (!prev)setShowSettingsRight(false)
+        return !prev;
+      });
+      setOutputSettings(deployedProducts); // Update with output products
+  } catch (error) {
+      console.error("Error toggling output products:", error);
+  }
+};
+
+
+  const removeFromInputTable = async (productId) => {
+    if (!selectedTask) return;
+  
+    try {
+      await axiosInstance.delete(`/api/tasks/${selectedTask.id}/products`, {
+        data: {
+          product_id: productId,
+          type: "input", // Specify the type of deployment to remove
+        },
+      });
+  
+      // Update the state to remove the product
+      setInputSettings((prev) => prev.filter((product) => product.id !== productId));
+    } catch (error) {
+      console.error("Error removing product from input table:", error);
+    }
   };
+  
 
   return (
     <div className="app-container">
@@ -252,95 +468,204 @@ function App() {
             </button>
 
 
-           {/* Input Settings Table */}
-            {showSettings && (
-              <div className="settings-table">
-                <h3>Input Settings for {selectedTask.name}</h3>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Deployed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {taskDeployments[selectedTask.id]?.map((product) => (
-                      <tr key={product.id}>
-                        <td>{product.name}</td>
-                        <td
-                          className={product.input_deployed === "V" ? "deployed" : "not-deployed"}
-                          onClick={() => toggleDeployment(product.id, "input")} // Toggle input deployment independently
+          {/* Input Settings Table */}
+
+            {/* Input Settings Table */}
+      {showSettings && (
+        <div className="settings-table">
+          <h3>Input Settings for {selectedTask?.name || "Task"}</h3>
+
+          {/* Input Product Title with Search Bar */}
+          <div className="product-search-container">
+            <label>Input Product:</label>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={settingsSearchQuery}
+              onChange={(e) => handleSettingsSearch(e.target.value)}
+              className="search-bar"
+            />
+          </div>
+
+          {/* Dynamic Search Suggestions */}
+          {settingsSearchQuery && (
+            <div className="search-suggestions">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="search-item">
+                  <span>{product.name}</span>
+                  <button
+                    className={`add-button ${inputSettings.some((p) => p.id === product.id) ? "disabled" : "enabled"}`}
+                    disabled={inputSettings.some((p) => p.id === product.id)} // Disable if already added
+                    onClick={() => addToSettingsTable(product)}
+                  >
+                    {inputSettings.some((p) => p.id === product.id) ? "Added" : "Add"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+
+
+          {/* Input Products Table */}
+            <table>
+              <thead>
+                <tr>
+                  <th>Input Product</th>
+                  <th>Deployment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inputSettings.length > 0 ? (
+                  inputSettings.map((product) => (
+                    <tr key={product.id}>
+                      <td>
+                        {product.name}
+                        <button
+                          className="delete-button"
+                          onClick={() => deleteFromSettingsTable(product.id)}
                         >
-                          {product.input_deployed}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            
-
-
-            {/* Output Settings Table */}
-            {showSettingsRight && (
-              <div className="output-settings-table">
-                <h3>Output Settings for {selectedTask.name}</h3>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Output Deployed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {taskDeployments[selectedTask.id]?.map((product) => (
-                      <tr key={product.id}>
-                        <td>{product.name}</td>
-                        <td
-                          className={product.output_deployed === "V" ? "deployed" : "not-deployed"}
-                          onClick={() => toggleDeployment(product.id, "output")}
+                          X
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          className={`deployment-button ${
+                            product.deployment_state === "V" ? "deployed" : "not-deployed"
+                          }`}
+                          onClick={() =>
+                            toggleDeploymentStatus(product.id, product.deployment_state)
+                          }
                         >
-                          {product.output_deployed}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          {product.deployment_state}
 
-      
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="2">No products added to input table</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+        </div>
+      )}           
             {/* Input Ovals */}
             {showProducts && (
               <div className="product-oval-container">
-                {taskDeployments[selectedTask.id]?.filter((product) => product.input_deployed === "V").length > 0 ? (
-                  taskDeployments[selectedTask.id]
-                    .filter((product) => product.input_deployed === "V")
-                    .map((product) => (
-                      <div key={product.id} className="product-oval">
-                        <h3>{product.name}</h3>
-                        <div className="product-oval-arrow"></div>
-                      </div>
-                    ))
+                {inputSettings.length > 0 ? (
+                  inputSettings.map((product) => (
+                    <div key={product.id} className="product-oval">
+                      <h3>{product.name}</h3>
+                      <div className="product-oval-arrow"></div>
+                    </div>
+                  ))
                 ) : (
-                  <p className="no-products-message">No products deployed</p>
+                  <p className="no-products-message">No deployed products</p>
                 )}
               </div>
             )}
+
+      {/*Output SettingsTable*/}    
+      {showSettingsRight && (
+        <div className="output-settings-table">
+          <h3>Output Settings for {selectedTask?.name || "Task"}</h3>
+
+          {/* Output Product Title with Search Bar */}
+          <div className="product-search-container">
+            <label>Output Product:</label>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQueryOutput}
+              onChange={(e) => handleOutputSettingsSearch(e.target.value)}
+              className="search-bar"
+            />
+          </div> 
+
+
+        {/* Dynamic Search Suggestions */}
+        {searchQueryOutput && (
+            <div className="search-suggestions">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="search-item">
+                  <span>{product.name}</span>
+                  <button
+                    className={`add-button ${outputSettings.some((p) => p.id === product.id) ? "disabled" : "enabled"}`}
+                    disabled={outputSettings.some((p) => p.id === product.id)} // Disable if already added
+                    onClick={() => addToSettingsTableright(product)}
+                  >
+                    {outputSettings.some((p) => p.id === product.id) ? "Added" : "Add"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+            {/* Output Products Table */}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Output Product</th>
+                      <th>Deployment</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outputSettings.length > 0 ? (
+                      outputSettings.map((product) => (
+                        <tr key={product.id}>
+                          <td>{product.name}
+                          <button
+                          className="delete-button"
+                          onClick={() => deleteFromOutputSettingsTable(product.id)}
+                        >
+                          X
+                        </button>
+                          </td>
+                          <td>
+                            <button
+                              className={`deployment-button ${
+                                product.deployment_state === "V" ? "deployed" : "not-deployed"
+                              }`}
+                              onClick={() =>
+                                toggleOutputDeploymentStatus(product.id, product.deployment_state)
+                              }
+                            >
+                              {product.deployment_state}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="2">No products added to output table</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+      
+      )}
+
 
               
 
             {/* Output Ovals */}
             {showProductsRight &&
-              taskDeployments[selectedTask.id]?.filter(
-                (product) => product.output_deployed === "V"
-              ).map((product) => (
-                <div key={product.id} className="output-product-oval">
-                  <div>{product.name}</div>
-                  <div className="output-product-oval-arrow"></div>
-                </div>
-              ))}
+              outputSettings.map((product) => (
+                product.deployment_state === "V" && (
+                  <div key={product.id} className="output-product-oval">
+                    <div>{product.name}</div>
+                    <div className="output-product-oval-arrow"></div>
+                  </div>
+                )
+              ))
+            }
+
           </div>
         </div>
       )}
@@ -353,6 +678,7 @@ function App() {
         </div>
       )}
     </div>
+    
     
   )
 }
