@@ -16,6 +16,7 @@
 
 /* Task Rectangle */
 .task-rectangle {
+  position: relative;
   width: calc(300px * 1.3); /* Made the task rectangle 1.1 times larger */
   height: calc(150px * 1.3); /* Made the task rectangle 1.1 times larger */
   background: lightblue;
@@ -197,6 +198,7 @@
 }
 
 .product-oval-container{
+  position: absolute;
   display: flex; /* Use flexbox to align ovals dynamically */
   flex-direction: column; /* Stack ovals vertically */
   align-items: flex-start; /* Align to the left */

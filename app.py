@@ -44,7 +44,7 @@ class TaskProduct(db.Model):
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     deployment_state = db.Column(db.String(1), default="V")  # V or X
-    type = db.Column(db.String(10))
+    type = db.Column(db.String(10), nullable=False)
 
     # Relationships
     task = db.relationship('Task', back_populates='task_products')
@@ -191,6 +191,9 @@ def get_task_products(task_id):
     })
 
 
+
+
+
 @app.route('/api/tasks/<int:task_id>/output-products', methods=['GET'])
 def get_output_products(task_id):
     #Fetch output products (with their deployment states) for a specific task.
@@ -242,7 +245,11 @@ def update_task_products(task_id):
     product_id = data.get("product_id")
     action = data.get("action")  # "add", "delete"
     new_state = data.get("state")  # "V" or "X"
-    product_type = data.get("type")
+    product_type = data.get("type")  # "input" or "output"
+
+    # Validate inputs
+    if not product_type or product_type not in ["input", "output"]:
+        return jsonify({"error": "Invalid product type"}), 400
 
     # Validate task and product
     task = Task.query.get(task_id)
@@ -253,26 +260,31 @@ def update_task_products(task_id):
 
     # Handle "add" action
     if action == "add":
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
+        existing_association = TaskProduct.query.filter_by(
+            task_id=task_id, product_id=product_id, type=product_type
+        ).first()
         if not existing_association:
             new_association = TaskProduct(
                 task_id=task_id,
                 product_id=product_id,
-                deployment_state="V", # Default state
-                type =product_type
-                
+                deployment_state="V",  # Default state
+                type=product_type,  # Explicitly set the type
             )
             db.session.add(new_association)
 
     # Handle "delete" action
     elif action == "delete":
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
+        existing_association = TaskProduct.query.filter_by(
+            task_id=task_id, product_id=product_id, type=product_type
+        ).first()
         if existing_association:
             db.session.delete(existing_association)
 
     # Handle "update state" action
     elif new_state:
-        existing_association = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
+        existing_association = TaskProduct.query.filter_by(
+            task_id=task_id, product_id=product_id, type=product_type
+        ).first()
         if existing_association:
             existing_association.deployment_state = new_state
 

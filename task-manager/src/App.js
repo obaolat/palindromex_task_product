@@ -76,12 +76,19 @@ function App() {
   const fetchTaskDeployments = async (taskId) => {
     try {
         const response = await axiosInstance.get(`/api/tasks/${taskId}/products`);
+        
+        // Update both input and output products in the task-specific state
         setTaskDeployments((prev) => ({
             ...prev,
-            [taskId]: response.data.input_products, // Include deployed_state here
+            [taskId]: {
+                input_products: response.data.input_products || [],
+                output_products: response.data.output_products || [],
+            },
         }));
 
-        setInputSettings(response.data.input_products); // Ensure deployed_state is accessible
+        // Update input and output settings independently
+        setInputSettings(response.data.input_products || []);
+        setOutputSettings(response.data.output_products || []);
     } catch (error) {
         console.error("Error fetching task deployments:", error);
     }
@@ -117,44 +124,51 @@ function App() {
 
   const addToSettingsTable = (product) => {
     if (!selectedTask) return;
-  
-    if (inputSettings.some((p) => p.id === product.id)) {
-      console.warn("Product is already added to this task.");
-      return;
-    }
-  
-    axiosInstance
-      .patch(`/api/tasks/${selectedTask.id}/products`, {
-        product_id: product.id,
-        type: "input",
-        action: "add",
-      })
-      .then(() => {
-        setInputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
-      })
-      .catch((error) => console.error("Error adding product to settings table:", error));
-  };
 
-  const addToSettingsTableright = (product) => {
-    if (!selectedTask) return;
-  
-    if (outputSettings.some((p) => p.id === product.id)) {
-      console.warn("Product is already added to this task.");
-      return;
+    // Check if the product is already added to input settings
+    if (inputSettings.some((p) => p.id === product.id)) {
+        console.warn("Product is already added to this task as input.");
+        return;
     }
-  
+
     axiosInstance
+        .patch(`/api/tasks/${selectedTask.id}/products`, {
+            product_id: product.id,
+            type: "input",
+            action: "add",
+        })
+        .then(() => {
+            // Verify if the backend confirms the addition
+            const updatedProduct = { ...product, deployment_state: "V" };
+            setInputSettings((prev) => [...prev, updatedProduct]);
+        })
+        .catch((error) => console.error("Error adding product to input settings table:", error));
+};
+
+
+const addToSettingsTableright = (product) => {
+  if (!selectedTask) return;
+
+  // Check if the product is already added to output settings
+  if (outputSettings.some((p) => p.id === product.id)) {
+      console.warn("Product is already added to this task as output.");
+      return;
+  }
+
+  axiosInstance
       .patch(`/api/tasks/${selectedTask.id}/products`, {
-        product_id: product.id,
-        type: "output",
-        action: "add",
+          product_id: product.id,
+          type: "output",
+          action: "add",
       })
-      .then(() => {
-        setOutputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
+      .then((response) => {
+          // Verify if the backend confirms the addition
+          const updatedProduct = { ...product, deployment_state: "V" };
+          setOutputSettings((prev) => [...prev, updatedProduct]);
       })
-      .catch((error) => console.error("Error adding product to settings table:", error));
-  };
-  
+      .catch((error) => console.error("Error adding product to output settings table:", error));
+};
+
   
   
   const handleTaskCreation = async () => {
@@ -323,9 +337,6 @@ const deleteFromOutputSettingsTable = async (productId) => {
     }
   };
   
-  
-
-
   const toggleProductsRight = async () => {
     if (!selectedTask) return;
   
@@ -670,10 +681,7 @@ const deleteFromOutputSettingsTable = async (productId) => {
 
       
       )}
-
-
               
-
             {/* Output Ovals */}
             
             {showProductsRight && (
