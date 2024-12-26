@@ -12,6 +12,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 
 /* Task Rectangle */
@@ -205,6 +206,7 @@
   gap: 0.1px; /* Space between ovals */
   width:100PX ; /* Ensure it takes up the full width */
   margin-top: 10px; /* Space from the task rectangle */
+  justify-content: center;
 }
 .task-rectangle .toggle-d,
 .task-rectangle .toggle-settings {

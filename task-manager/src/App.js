@@ -124,51 +124,44 @@ function App() {
 
   const addToSettingsTable = (product) => {
     if (!selectedTask) return;
-
-    // Check if the product is already added to input settings
+  
     if (inputSettings.some((p) => p.id === product.id)) {
-        console.warn("Product is already added to this task as input.");
-        return;
-    }
-
-    axiosInstance
-        .patch(`/api/tasks/${selectedTask.id}/products`, {
-            product_id: product.id,
-            type: "input",
-            action: "add",
-        })
-        .then(() => {
-            // Verify if the backend confirms the addition
-            const updatedProduct = { ...product, deployment_state: "V" };
-            setInputSettings((prev) => [...prev, updatedProduct]);
-        })
-        .catch((error) => console.error("Error adding product to input settings table:", error));
-};
-
-
-const addToSettingsTableright = (product) => {
-  if (!selectedTask) return;
-
-  // Check if the product is already added to output settings
-  if (outputSettings.some((p) => p.id === product.id)) {
-      console.warn("Product is already added to this task as output.");
+      console.warn("Product is already added to this task.");
       return;
-  }
-
-  axiosInstance
+    }
+  
+    axiosInstance
       .patch(`/api/tasks/${selectedTask.id}/products`, {
-          product_id: product.id,
-          type: "output",
-          action: "add",
+        product_id: product.id,
+        type: "input",
+        action: "add",
       })
-      .then((response) => {
-          // Verify if the backend confirms the addition
-          const updatedProduct = { ...product, deployment_state: "V" };
-          setOutputSettings((prev) => [...prev, updatedProduct]);
+      .then(() => {
+        setInputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
       })
-      .catch((error) => console.error("Error adding product to output settings table:", error));
-};
+      .catch((error) => console.error("Error adding product to settings table:", error));
+  };
 
+  const addToSettingsTableright = (product) => {
+    if (!selectedTask) return;
+  
+    if (outputSettings.some((p) => p.id === product.id)) {
+      console.warn("Product is already added to this task.");
+      return;
+    }
+  
+    axiosInstance
+      .patch(`/api/tasks/${selectedTask.id}/products`, {
+        product_id: product.id,
+        type: "output",
+        action: "add",
+      })
+      .then(() => {
+        setOutputSettings((prev) => [...prev, { ...product, deployment_state: "V" }]);
+      })
+      .catch((error) => console.error("Error adding product to settings table:", error));
+  };
+  
   
   
   const handleTaskCreation = async () => {
@@ -201,6 +194,7 @@ const addToSettingsTableright = (product) => {
 
     await axiosInstance.patch(`/api/tasks/${selectedTask.id}/products`, {
       product_id: productId,
+      type: "input",
       state: newState, // Update state in the backend
     });
 
