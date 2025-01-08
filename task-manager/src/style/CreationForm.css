@@ -1,0 +1,55 @@
+.creation-forms {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .task-creation-form,
+  .product-creation-form {
+    width: 300px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .task-creation-form h2,
+  .product-creation-form h2 {
+    text-align: center;
+    color: #333;
+  }
+  
+  input,
+  select,
+  button {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    width: 100%;
+    font-size: 14px;
+  }
+  
+  button {
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  
+  button:hover {
+    background: #0056b3;
+  }
+  
+  button:active {
+    transform: scale(0.98);
+  }
+  
+  button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  

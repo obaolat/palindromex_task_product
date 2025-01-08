@@ -1,0 +1,155 @@
+.current-product-table-container {
+    margin: 20px;
+    text-align: center;
+  }
+  
+  .toggle-current-product-table-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .toggle-current-product-table-btn:hover {
+    background-color: #0056b3;
+  }
+  
+  .current-product-table-wrapper {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .create-product-toggle-btn{
+    margin-left: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+  
+  .current-product-table-header {
+    margin-bottom: 10px;
+  }
+  
+  .current-product-search-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .current-product-table-body {
+    max-height: 200px; /* Ensure it fits 5 rows */
+    overflow-y: auto; /* Enable vertical scrolling */
+  }
+  
+  .current-product-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .current-product-table th,
+  .current-product-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+  }
+  
+  .current-product-table th {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .current-product-table tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+  
+  .current-product-table-footer {
+    text-align: center;
+    margin-top: 10px;
+    font-style: italic;
+  }
+
+  
+  /* Product creation overlay */
+.product-creation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Product creation form popup */
+.product-creation-form-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  width: 400px;
+  z-index: 1000;
+  text-align: left;
+  animation: bounceIn 0.6s ease-out; /* Bounce effect for the popup */
+}
+
+/* Form heading */
+.product-creation-form-popup h2 {
+  margin-bottom: 20px;
+  color: #343a40;
+  font-size: 18px;
+  text-align: center;
+}
+
+/* Form fields */
+.product-creation-form-popup input,
+.product-creation-form-popup select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  outline: none;
+}
+
+.product-creation-form-popup input:focus,
+.product-creation-form-popup select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+/* Submit button */
+.product-creation-form-popup button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.product-creation-form-popup button:hover {
+  background-color: #0056b3;
+}
+

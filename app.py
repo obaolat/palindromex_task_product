@@ -25,6 +25,17 @@ class Task(db.Model):
 
     # Relationship to TaskProduct junction table
     task_products = db.relationship('TaskProduct', back_populates='task')
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "cost" : self.cost,
+            "currency": self.currency,
+            
+        }
 
 
 class Product(db.Model):
@@ -64,6 +75,7 @@ def manage_tasks():
                 "start_time": task.start_time,
                 "end_time": task.end_time,
                 "cost": str(task.cost),
+                "currency": str(task.currency),
             }
             for task in tasks
         ])
@@ -120,46 +132,14 @@ def manage_products():
             cost=data['cost'],
             currency=data.get('currency', 'USD')
         )
+        print("Request received:", request.method, request.json)
+    
         db.session.add(new_product)
         db.session.commit()
 
         return jsonify({"message": "Product created", "product_id": new_product.id}), 201
-
-
-
-
-"""@app.route('/api/tasks/<int:task_id>/products', methods=['GET'])
-def get_task_products(task_id):
-    #Fetch all products specifically associated with a task.
-    task = Task.query.get(task_id)
-    if not task:
-        return jsonify({"error": "Task not found"}), 404
-
-    # Filter products associated with this task
-    input_products = [
-        {
-            "id": product.id,
-            "name": product.name,
-            "input_task_id": product.input_task_id,
-            "input_task_deployed": product.input_task_deployed,  # V or X
-        }
-        for product in Product.query.filter_by(input_task_id=task_id)
-    ]
-
-
-    output_products = [
-        {
-            "id": product.id,
-            "name": product.name,
-            "output_task_deployed": product.output_task_deployed,  # Keep track of V or X
-        }
-        for product in Product.query.filter_by(output_task_id=task_id)
-    ]
-
-    return jsonify({
-        "input_products": input_products,
-        "output_products": output_products,
-    }) """
+            
+        return jsonify(success=True)
     
     
 @app.route('/api/tasks/<int:task_id>/products', methods=['GET'])
@@ -189,7 +169,40 @@ def get_task_products(task_id):
         "input_products": input_products,
         "output_products": output_products,
     })
+    
+@app.route('/api/products/<int:product_id>/tasks', methods=['GET'])
+def get_tasks_for_product(product_id):
+    type = request.args.get('type')  # 'input' or 'output'
+    if type == 'input':
+        tasks = Task.query.join(TaskProduct).filter(
+            TaskProduct.product_id == product_id,
+            TaskProduct.type == 'output'
+        ).all()
+    elif type == 'output':
+        tasks = Task.query.join(TaskProduct).filter(
+            TaskProduct.product_id == product_id,
+            TaskProduct.type == 'input'
+        ).all()
+    else:
+        return jsonify({'error': 'Invalid type parameter'}), 400
+    
+    return jsonify([task.to_dict() for task in tasks])
 
+
+@app.route('/api/tasks/<int:task_id>/products/<int:product_id>', methods=['DELETE'])
+def delete_task_product_relationship(task_id, product_id):
+    try:
+        task_product = TaskProduct.query.filter_by(task_id=task_id, product_id=product_id).first()
+        if not task_product:
+            return jsonify({'error': 'Task-Product relationship not found'}), 404
+
+        db.session.delete(task_product)
+        db.session.commit()
+
+        return jsonify({'message': f'Relationship between Task {task_id} and Product {product_id} deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 
