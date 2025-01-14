@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_migrate import Migrate 
 import os
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -39,7 +40,7 @@ class Task(db.Model):
 
 
 class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)    
     name = db.Column(db.String(255), nullable=False)
     creation_time = db.Column(db.DateTime)
     cost = db.Column(db.Numeric)
@@ -56,6 +57,8 @@ class TaskProduct(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     deployment_state = db.Column(db.String(1), default="V")  # V or X
     type = db.Column(db.String(10), nullable=False)
+    context_id = db.Column (db.String(255), nullable=False)
+    instance_id = db.Column (db.String(255), nullable=False)
 
     # Relationships
     task = db.relationship('Task', back_populates='task_products')
@@ -141,10 +144,10 @@ def manage_products():
             
         return jsonify(success=True)
     
-    
+"""  
 @app.route('/api/tasks/<int:task_id>/products', methods=['GET'])
 def get_task_products(task_id):
-    """Fetch input and output products for a specific task."""
+    #Fetch input and output products for a specific task.
     task_products = TaskProduct.query.filter_by(task_id=task_id).all()
 
     input_products = [
@@ -170,6 +173,42 @@ def get_task_products(task_id):
         "output_products": output_products,
     })
     
+    """
+@app.route('/api/tasks/<int:task_id>/contexts/<string:context_id>/products', methods=['GET'])
+def get_task_products_context(task_id, context_id):
+    """Retrieve input and output products for a specific task and context."""
+    # Validate task
+    task = Task.query.get(task_id)
+    if not task:
+        return jsonify({"error": "Task not found"}), 404
+
+    # Query task products filtered by context_id
+    task_products = TaskProduct.query.filter_by(task_id=task_id, context_id=context_id).all()
+
+    # Separate input and output products
+    output_products = [
+        {
+            "id": tp.product_id,
+            "name": tp.product.name,
+            "deployment_state": tp.deployment_state,
+        }
+        for tp in task_products
+        if tp.type == "output"
+    ]
+
+    input_products = [
+        {
+            "id": tp.product_id,
+            "name": tp.product.name,
+            "deployment_state": tp.deployment_state,
+        }
+        for tp in task_products
+        if tp.type == "input"
+    ]
+
+    return jsonify({"output_products": output_products, "input_products": input_products})
+
+"""    
 @app.route('/api/products/<int:product_id>/tasks', methods=['GET'])
 def get_tasks_for_product(product_id):
     type = request.args.get('type')  # 'input' or 'output'
@@ -187,6 +226,29 @@ def get_tasks_for_product(product_id):
         return jsonify({'error': 'Invalid type parameter'}), 400
     
     return jsonify([task.to_dict() for task in tasks])
+    
+    """
+
+@app.route('/api/products/<int:product_id>/instance/<string:instance_id>/tasks', methods=['GET'])
+def get_tasks_for_product_in_context(product_id, instance_id):
+    type = request.args.get('type')  # 'input' or 'output'
+    if type == 'input':
+        tasks = Task.query.join(TaskProduct).filter(
+            TaskProduct.product_id == product_id,
+            TaskProduct.type == 'output',
+            TaskProduct.instance_id == instance_id
+        ).all()
+    elif type == 'output':
+        tasks = Task.query.join(TaskProduct).filter(
+            TaskProduct.product_id == product_id,
+            TaskProduct.type == 'input',
+            TaskProduct.instance_id == instance_id
+        ).all()
+    else:
+        return jsonify({'error': 'Invalid type parameter'}), 400
+    
+    return jsonify([task.to_dict() for task in tasks])
+
 
 
 @app.route('/api/tasks/<int:task_id>/products/<int:product_id>', methods=['DELETE'])
@@ -203,10 +265,39 @@ def delete_task_product_relationship(task_id, product_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/products/<int:product_id>/contexts', methods=['GET'])
+def get_product_contexts(product_id):
+    """
+    Retrieve all unique context IDs related to a specific product.
+    """
+    try:
+        # Check if the product exists
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        # Query the TaskProduct table to get distinct context IDs for the product
+        contexts = (
+            db.session.query(TaskProduct.context_id)
+            .filter(TaskProduct.product_id == product_id)
+            .distinct()
+            .all()
+        )
+
+        # Convert the results into a list of context IDs
+        context_data = [{"context_id": ctx[0]} for ctx in contexts]
+
+        return jsonify(context_data), 200
+
+    except Exception as e:
+        print(f"Error fetching contexts for product {product_id}: {e}")
+        return jsonify({"error": "An error occurred while fetching contexts"}), 500
 
 
 
 
+"""
 @app.route('/api/tasks/<int:task_id>/output-products', methods=['GET'])
 def get_output_products(task_id):
     #Fetch output products (with their deployment states) for a specific task.
@@ -224,7 +315,27 @@ def get_output_products(task_id):
     ]
 
     return jsonify({"output_products": output_products})
+"""
+"""
+@app.route('/api/products/<int:product_id>/contexts/<string:context_id>/relationships', methods=['GET'])
+def get_relationships_for_product(product_id, context_id):
+    input_tasks = Task.query.join(TaskProduct).filter(
+        TaskProduct.product_id == product_id,
+        TaskProduct.type == 'output',
+        TaskProduct.context_id == context_id
+    ).all()
 
+    output_tasks = Task.query.join(TaskProduct).filter(
+        TaskProduct.product_id == product_id,
+        TaskProduct.type == 'input',
+        TaskProduct.context_id == context_id
+    ).all()
+
+    return jsonify({
+        "input_tasks": [task.to_dict() for task in input_tasks],
+        "output_tasks": [task.to_dict() for task in output_tasks]
+    })
+"""
     
 @app.route('/api/tasks/<int:task_id>/deployed-products', methods=['GET'])
 def get_deployed_products(task_id):
@@ -250,10 +361,10 @@ def get_deployed_products(task_id):
         ],
     })
 
-
+"""
 @app.route('/api/tasks/<int:task_id>/products', methods=['PATCH'])
 def update_task_products(task_id):
-    """Attach, delete, or update a product for a task."""
+    #Attach, delete, or update a product for a task.
     data = request.json
     product_id = data.get("product_id")
     action = data.get("action")  # "add", "delete"
@@ -304,6 +415,112 @@ def update_task_products(task_id):
     db.session.commit()
     return jsonify({"message": "Product updated successfully"})
 
+"""
+@app.route('/api/tasks/<int:task_id>/contexts/<string:context_id>/products', methods=['PATCH'])
+def update_task_products_context(task_id, context_id):
+    
+    #Attach, delete, or update a product for a task within a specific context.
+    
+    data = request.json
+    product_id = data.get("product_id")
+    action = data.get("action")  # "add", "delete"
+    new_state = data.get("state")  # "V" or "X"
+    product_type = data.get("type")  # "input" or "output"
+    instance_id = data.get("instance_id")
+
+    # Validate inputs
+    if not product_id or not action or not product_type:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    if product_type not in ["input", "output"]:
+        return jsonify({"error": "Invalid product type"}), 400
+
+    # Validate task and product existence
+    task = Task.query.get(task_id)
+    product = Product.query.get(product_id)
+
+    if not task:
+        return jsonify({"error": "Task not found"}), 404
+
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    # Query for existing task-product association by context
+    existing_association = TaskProduct.query.filter_by(
+        task_id=task_id, product_id=product_id, type=product_type, context_id=context_id, instance_id = instance_id
+    ).first()
+
+    # Handle "add" action
+    if action == "add":
+        if not existing_association:
+            new_association = TaskProduct(
+                task_id=task_id,
+                product_id=product_id,
+                deployment_state="V",  # Default state
+                type=product_type,
+                context_id=context_id,
+                instance_id = instance_id
+            )
+            db.session.add(new_association)
+        else:
+            return jsonify({"error": "Product already added for this context"}), 400
+
+    # Handle "delete" action
+    elif action == "delete":
+        if existing_association:
+            db.session.delete(existing_association)
+        if not existing_association:
+            return jsonify({
+                "error": "Product not found for this context",
+                "details": {
+                    "task_id": task_id,
+                    "product_id": product_id,
+                    "type": product_type,
+                    "context_id": context_id,
+                    "instance_id": instance_id,
+                }
+            }), 404
+    # Handle "update state" action
+    elif new_state:
+        if existing_association:
+            existing_association.deployment_state = new_state
+        else:
+            return jsonify({"error": "Product not found for this context"}), 404
+
+    # Commit changes to the database
+    db.session.commit()
+
+    return jsonify({"message": "Product updated successfully"})
+
+
+@app.route('/api/tasks/<int:task_id>/contexts', methods=['POST'])
+def create_context(task_id):
+    """
+    Create a new context_id for a specific task.
+    """
+    # Validate task existence
+    task = Task.query.get(task_id)
+    if not task:
+        return jsonify({"error": "Task not found"}), 404
+
+    # Generate a new context_id
+    new_context_id = str(uuid.uuid4())
+
+    # Return the generated context_id
+    return jsonify({"task_id": task_id, "context_id": new_context_id})
+
+@app.route('/api/products/<int:product_id>/instance', methods =['POST'])
+def create_instance(product_id):
+
+
+#Create a new instance for a specific product.
+
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    new_product_id = str(uuid.uuid4())
+    return jsonify ({"product_id": product_id, "instance_id":new_product_id})
 
 
 @app.route('/api/nest', methods=['POST'])
@@ -333,10 +550,10 @@ def delete_product(product_id):
     db.session.delete(product)
     db.session.commit()
     return jsonify({"message": "Product deleted successfully"}), 200
-
+""""
 @app.route('/api/tasks/<int:task_id>/products', methods=['DELETE'])
 def remove_product_from_task(task_id):
-    """Remove a product association (input or output) from a specific task."""
+    #Remove a product association (input or output) from a specific task.
     data = request.json
     product_id = data.get("product_id")
     deployment_type = data.get("type")  # "input" or "output"
@@ -357,7 +574,7 @@ def remove_product_from_task(task_id):
 
     db.session.commit()
     return jsonify({"message": f"Product {product_id} removed from {deployment_type} of task {task_id}"}), 200
-
+"""
 @app.route('/api/tasks/<int:task_id>/search', methods=['GET'])
 def search_products(task_id):
     """Fetch products not already attached to this task."""
@@ -373,6 +590,39 @@ def search_products(task_id):
         {"id": product.id, "name": product.name}
         for product in available_products
     ])
+
+@app.route('/api/relationships/<int:product_id>', methods=['GET'])
+def fetch_relationship_chain(product_id):
+    depth = int(request.args.get('depth', 2))
+    direction = request.args.get('direction', 'forward')
+
+    def recursive_fetch(prod_id, depth, direction):
+        if depth == 0:
+            return []
+        related = []
+        if direction == 'forward':
+            tasks = Task.query.join(TaskProduct).filter(
+                TaskProduct.product_id == prod_id,
+                TaskProduct.type == "output"
+            ).all()
+            for task in tasks:
+                related.append({
+                    "task": task.to_dict(),
+                    "products": [
+                        recursive_fetch(prod.id, depth - 1, direction) for prod in
+                        Product.query.join(TaskProduct).filter(
+                            TaskProduct.task_id == task.id,
+                            TaskProduct.type == "output"
+                        ).all()
+                    ]
+                })
+        elif direction == 'reverse':
+            # Similar logic for reverse direction
+            pass
+        return related
+
+    chain = recursive_fetch(product_id, depth, direction)
+    return jsonify(chain)
 
 
 # Serve React frontend
